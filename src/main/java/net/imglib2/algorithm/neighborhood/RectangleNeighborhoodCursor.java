@@ -43,7 +43,19 @@ public final class RectangleNeighborhoodCursor< T > extends RectangleNeighborhoo
 {
 	private final long[] dimensions;
 
+	/*
+	 * dimensions[ 0 ] is accessed very frequently, so here is a shortcut which
+	 * does not require array access:
+	 */
+	private final long dimensions0;
+
 	private final long[] min;
+
+	/*
+	 * min[ 0 ] is accessed rather frequently in nextLine(), here is a shortcut
+	 * which does not require array access:
+	 */
+	private final long min0;
 
 	private final long[] max;
 
@@ -63,7 +75,9 @@ public final class RectangleNeighborhoodCursor< T > extends RectangleNeighborhoo
 		source.dimensions( dimensions );
 		source.min( min );
 		source.max( max );
-		long size = dimensions[ 0 ];
+		min0 = min[ 0 ];
+		dimensions0 = dimensions[ 0 ];
+		long size = dimensions0;
 		for ( int d = 1; d < n; ++d )
 			size *= dimensions[ d ];
 		maxIndex = size;
@@ -76,6 +90,8 @@ public final class RectangleNeighborhoodCursor< T > extends RectangleNeighborhoo
 		dimensions = c.dimensions.clone();
 		min = c.min.clone();
 		max = c.max.clone();
+		min0 = c.min0;
+		dimensions0 = c.dimensions0;
 		maxIndex = c.maxIndex;
 		index = c.index;
 		maxIndexOnLine = c.maxIndexOnLine;
@@ -93,10 +109,10 @@ public final class RectangleNeighborhoodCursor< T > extends RectangleNeighborhoo
 
 	private void nextLine()
 	{
-		currentPos[ 0 ] = min[ 0 ];
-		currentMin[ 0 ] -= dimensions[ 0 ];
-		currentMax[ 0 ] -= dimensions[ 0 ];
-		maxIndexOnLine += dimensions[ 0 ];
+		currentPos[ 0 ] = min0;
+		currentMin[ 0 ] -= dimensions0;
+		currentMax[ 0 ] -= dimensions0;
+		maxIndexOnLine += dimensions0;
 		for ( int d = 1; d < n; ++d )
 		{
 			++currentPos[ d ];
@@ -117,7 +133,7 @@ public final class RectangleNeighborhoodCursor< T > extends RectangleNeighborhoo
 	public void reset()
 	{
 		index = 0;
-		maxIndexOnLine = dimensions[ 0 ];
+		maxIndexOnLine = dimensions0;
 		for ( int d = 0; d < n; ++d )
 		{
 			currentPos[ d ] = ( d == 0 ) ? min[ d ] - 1 : min[ d ];
@@ -136,7 +152,7 @@ public final class RectangleNeighborhoodCursor< T > extends RectangleNeighborhoo
 	public void jumpFwd( final long steps )
 	{
 		index += steps;
-		maxIndexOnLine = ( index < 0 ) ? dimensions[ 0 ] : ( 1 + index / dimensions[ 0 ] ) * dimensions[ 0 ];
+		maxIndexOnLine = ( index < 0 ) ? dimensions0 : ( 1 + index / dimensions0 ) * dimensions0;
 		IntervalIndexer.indexToPositionWithOffset( index + 1, dimensions, min, currentPos );
 		for ( int d = 0; d < n; ++d )
 		{
