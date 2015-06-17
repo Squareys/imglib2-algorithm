@@ -83,6 +83,10 @@ public abstract class RectangleNeighborhoodLocalizableSampler< T > extends Abstr
 			}
 			sourceInterval = new FinalInterval( accessMin, accessMax );
 		}
+		
+		span.min( currentMin );
+		span.max( currentMax );
+		
 		currentNeighborhood = neighborhoodFactory.create( currentPos, currentMin, currentMax, span,
 				sourceInterval == null ? source.randomAccess() : source.randomAccess( sourceInterval ) );
 	}
