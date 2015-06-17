@@ -37,6 +37,7 @@ package net.imglib2.algorithm.neighborhood.old;
 import net.imglib2.Interval;
 import net.imglib2.RandomAccess;
 import net.imglib2.algorithm.neighborhood.Neighborhood;
+import net.imglib2.algorithm.neighborhood.RectangleNeighborhoodFactory;
 
 public final class RectangleNeighborhoodUnsafe< T > extends RectangleNeighborhood< T >
 {

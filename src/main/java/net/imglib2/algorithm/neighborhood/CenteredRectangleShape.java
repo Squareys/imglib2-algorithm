@@ -41,8 +41,8 @@ import net.imglib2.FinalInterval;
 import net.imglib2.Interval;
 import net.imglib2.RandomAccessible;
 import net.imglib2.RandomAccessibleInterval;
-import net.imglib2.algorithm.neighborhood.RectangleShape.NeighborhoodsAccessible;
-import net.imglib2.algorithm.neighborhood.RectangleShape.NeighborhoodsIterableInterval;
+import net.imglib2.algorithm.neighborhood.old.RectangleShape.NeighborhoodsAccessible;
+import net.imglib2.algorithm.neighborhood.old.RectangleShape.NeighborhoodsIterableInterval;
 import net.imglib2.util.Util;
 
 /**
@@ -90,7 +90,7 @@ public class CenteredRectangleShape implements Shape
 	@Override
 	public < T > NeighborhoodsIterableInterval< T > neighborhoods( final RandomAccessibleInterval< T > source )
 	{
-		final RectangleNeighborhoodFactory< T > f = skipCenter ? RectangleNeighborhoodSkipCenterUnsafe.< T >factory() : RectangleNeighborhoodUnsafe.< T >factory();
+		final RectangleNeighborhoodFactory< T > f = skipCenter ? RectangleNeighborhoodSkipCenterUnsafe.< T >factory() : net.imglib2.algorithm.neighborhood.old.RectangleNeighborhoodUnsafe.< T >factory();
 		final Interval spanInterval = createSpan();
 		return new NeighborhoodsIterableInterval< T >( source, spanInterval, f );
 	}
@@ -98,7 +98,7 @@ public class CenteredRectangleShape implements Shape
 	@Override
 	public < T > NeighborhoodsAccessible< T > neighborhoodsRandomAccessible( final RandomAccessible< T > source )
 	{
-		final RectangleNeighborhoodFactory< T > f = skipCenter ? RectangleNeighborhoodSkipCenterUnsafe.< T >factory() : RectangleNeighborhoodUnsafe.< T >factory();
+		final RectangleNeighborhoodFactory< T > f = skipCenter ? RectangleNeighborhoodSkipCenterUnsafe.< T >factory() : net.imglib2.algorithm.neighborhood.old.RectangleNeighborhoodUnsafe.< T >factory();
 		final Interval spanInterval = createSpan();
 		return new NeighborhoodsAccessible< T >( source, spanInterval, f );
 	}
@@ -106,7 +106,7 @@ public class CenteredRectangleShape implements Shape
 	@Override
 	public < T > NeighborhoodsIterableInterval< T > neighborhoodsSafe( final RandomAccessibleInterval< T > source )
 	{
-		final RectangleNeighborhoodFactory< T > f = skipCenter ? RectangleNeighborhoodSkipCenter.< T >factory() : RectangleNeighborhood.< T >factory();
+		final RectangleNeighborhoodFactory< T > f = skipCenter ? RectangleNeighborhoodSkipCenter.< T >factory() : net.imglib2.algorithm.neighborhood.old.RectangleNeighborhood.< T >factory();
 		final Interval spanInterval = createSpan();
 		return new NeighborhoodsIterableInterval< T >( source, spanInterval, f );
 	}
@@ -114,7 +114,7 @@ public class CenteredRectangleShape implements Shape
 	@Override
 	public < T > NeighborhoodsAccessible< T > neighborhoodsRandomAccessibleSafe( final RandomAccessible< T > source )
 	{
-		final RectangleNeighborhoodFactory< T > f = skipCenter ? RectangleNeighborhoodSkipCenter.< T >factory() : RectangleNeighborhood.< T >factory();
+		final RectangleNeighborhoodFactory< T > f = skipCenter ? RectangleNeighborhoodSkipCenter.< T >factory() : net.imglib2.algorithm.neighborhood.old.RectangleNeighborhood.< T >factory();
 		final Interval spanInterval = createSpan();
 		return new NeighborhoodsAccessible< T >( source, spanInterval, f );
 	}

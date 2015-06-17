@@ -44,6 +44,7 @@ import net.imglib2.Positionable;
 import net.imglib2.RandomAccess;
 import net.imglib2.RealPositionable;
 import net.imglib2.algorithm.neighborhood.Neighborhood;
+import net.imglib2.algorithm.neighborhood.RectangleNeighborhoodFactory;
 import net.imglib2.util.IntervalIndexer;
 
 public class RectangleNeighborhoodSkipCenter< T > extends AbstractLocalizable implements Neighborhood< T >
