@@ -63,6 +63,12 @@ public class RectangleNeighborhood< T > extends AbstractLocalizable implements N
 	private final long[] currentMax;
 
 	private final long[] dimensions;
+	
+	/*
+	 * dimensions[ 0 ] is accessed very frequently though LocalCursor.reset() and LocalCursor.nextLine(),
+	 * so here is a shortcut which does not require array access:
+	 */
+	private final long dimensions0;
 
 	private final RandomAccess< T > sourceRandomAccess;
 
@@ -78,7 +84,7 @@ public class RectangleNeighborhood< T > extends AbstractLocalizable implements N
 		dimensions = new long[ n ];
 		span.dimensions( dimensions );
 
-		long mi = dimensions[ 0 ];
+		long mi = dimensions0 = dimensions[ 0 ];
 		for ( int d = 1; d < n; ++d )
 			mi *= dimensions[ d ];
 		maxIndex = mi;
@@ -224,66 +230,52 @@ public class RectangleNeighborhood< T > extends AbstractLocalizable implements N
 
 	public final class LocalCursor extends AbstractEuclideanSpace implements Cursor< T >
 	{
-		private final RandomAccess< T >[] strel;
+		private final RandomAccess< T > source;
 
-		private int index;
+		private long index;
 
-
-		private long[] previousMin;
+		private long maxIndexOnLine;
 
 		public LocalCursor( final RandomAccess< T > source )
 		{
 			super( source.numDimensions() );
-
-			strel = new RandomAccess[ ( int ) maxIndex ];
-			
-			long maxIndexOnLine = dimensions[ 0 ]-1;
-			source.setPosition( currentMin );
-
-			index = -1;
-			while ( ++index < maxIndex )
-			{
-				strel[ index ] = source.copyRandomAccess();
-				strel[ index ].setPosition( source );
-				
-				source.fwd( 0 );
-				if ( index + 1 > maxIndexOnLine )
-				{
-					source.setPosition( currentMin[ 0 ], 0 );
-					maxIndexOnLine += dimensions[ 0 ];
-					for ( int d = 1; d < n; ++d )
-					{
-						source.fwd( d );
-						if ( source.getLongPosition( d ) > currentMax[ d ] )
-							source.setPosition( currentMin[ d ], d );
-						else
-							break;
-					}
-				}
-
-			}
-
-			index = -1;
-			previousMin = currentMin.clone();
+			this.source = source;
+			reset();
 		}
 
 		protected LocalCursor( final LocalCursor c )
 		{
 			super( c.numDimensions() );
+			source = c.source.copyRandomAccess();
 			index = c.index;
-			strel = c.strel.clone();
 		}
 
 		@Override
 		public T get()
 		{
-			return strel[ index ].get();
+			return source.get();
 		}
 
 		@Override
 		public void fwd()
 		{
-			++index;
+			source.fwd( 0 );
+			if ( ++index > maxIndexOnLine )
+				nextLine();
+		}
+
+		private void nextLine()
+		{
+			source.setPosition( currentMin[ 0 ], 0 );
+			maxIndexOnLine += dimensions0;
+			for ( int d = 1; d < n; ++d )
+			{
+				source.fwd( d );
+				if ( source.getLongPosition( d ) > currentMax[ d ] )
+					source.setPosition( currentMin[ d ], d );
+				else
+					break;
+			}
 		}
 
 		@Override
@@ -309,76 +301,64 @@ public class RectangleNeighborhood< T > extends AbstractLocalizable implements N
 		@Override
 		public void reset()
 		{
-			index = -1;
-
-			// calculate offset
-			long[] offset = new long[currentMin.length];
-			for (int d = 0; d < currentMin.length; ++d) {
-				offset[d] = currentMin[ d ] - previousMin[ d ] ;
-			}
-
-			// store minimum for next reset
-			previousMin = currentMin.clone();
-
-			// apply offset
-			for ( RandomAccess< T > ra : strel )
-			{
-				ra.move( offset );
-			}
+			source.setPosition( currentMin );
+			source.bck( 0 );
+			index = 0;
+			maxIndexOnLine = dimensions0;
 		}
 
 		@Override
 		public boolean hasNext()
 		{
-			return index + 1 < maxIndex;
+			return index < maxIndex;
 		}
 
 		@Override
 		public float getFloatPosition( final int d )
 		{
-			return strel[ index ].getFloatPosition( d );
+			return source.getFloatPosition( d );
 		}
 
 		@Override
 		public double getDoublePosition( final int d )
 		{
-			return strel[ index ].getDoublePosition( d );
+			return source.getDoublePosition( d );
 		}
 
 		@Override
 		public int getIntPosition( final int d )
 		{
-			return strel[ index ].getIntPosition( d );
+			return source.getIntPosition( d );
 		}
 
 		@Override
 		public long getLongPosition( final int d )
 		{
-			return strel[ index ].getLongPosition( d );
+			return source.getLongPosition( d );
 		}
 
 		@Override
 		public void localize( final long[] position )
 		{
-			strel[ index ].localize( position );
+			source.localize( position );
 		}
 
 		@Override
 		public void localize( final float[] position )
 		{
-			strel[ index ].localize( position );
+			source.localize( position );
 		}
 
 		@Override
 		public void localize( final double[] position )
 		{
-			strel[ index ].localize( position );
+			source.localize( position );
 		}
 
 		@Override
 		public void localize( final int[] position )
 		{
-			strel[ index ].localize( position );
+			source.localize( position );
 		}
 
 		@Override
