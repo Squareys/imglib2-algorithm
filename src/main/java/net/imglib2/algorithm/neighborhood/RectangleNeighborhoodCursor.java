@@ -65,6 +65,12 @@ public final class RectangleNeighborhoodCursor< T > extends RectangleNeighborhoo
 
 	private long maxIndexOnLine;
 
+	/*
+	 * "safe" is used to keep track if accessing the pixels of a neighborhood
+	 * can be done without an out of bounds check.
+	 */
+	private boolean safe;
+
 	public RectangleNeighborhoodCursor( final RandomAccessibleInterval< T > source, final Interval span, final RectangleNeighborhoodFactory< T > factory )
 	{
 		super( source, span, factory, source );
@@ -103,6 +109,8 @@ public final class RectangleNeighborhoodCursor< T > extends RectangleNeighborhoo
 		++currentPos[ 0 ];
 		++currentMin[ 0 ];
 		++currentMax[ 0 ];
+		
+		safe = safe && currentPos[ 0 ] > innerInterval.min( 0 ) && currentPos[ 0 ] < innerInterval.max( 0 );
 		if ( ++index > maxIndexOnLine )
 			nextLine();
 	}
@@ -123,15 +131,33 @@ public final class RectangleNeighborhoodCursor< T > extends RectangleNeighborhoo
 				currentPos[ d ] = min[ d ];
 				currentMin[ d ] -= dimensions[ d ];
 				currentMax[ d ] -= dimensions[ d ];
+				
+				safe = safe && currentPos[ d ] > innerInterval.min( d ) && currentPos[ d ] < innerInterval.max( d );
 			}
-			else
+			else {
+				safe = safe && currentPos[ d ] > innerInterval.min( d ) && currentPos[ d ] < innerInterval.max( d );
 				break;
+			}
+		}
+	}
+
+	@Override
+	public Neighborhood< T > get()
+	{
+		if ( safe )
+		{
+			return currentInnerNeighborhood;
+		}
+		else
+		{
+			return currentNeighborhood;
 		}
 	}
 
 	@Override
 	public void reset()
 	{
+		safe = true;
 		index = 0;
 		maxIndexOnLine = dimensions0;
 		for ( int d = 0; d < n; ++d )
@@ -139,6 +165,8 @@ public final class RectangleNeighborhoodCursor< T > extends RectangleNeighborhoo
 			currentPos[ d ] = ( d == 0 ) ? min[ d ] - 1 : min[ d ];
 			currentMin[ d ] = currentPos[ d ] + span.min( d );
 			currentMax[ d ] = currentPos[ d ] + span.max( d );
+
+			safe = safe && currentPos[ d ] > innerInterval.min( d ) && currentPos[ d ] < innerInterval.max( d );
 		}
 	}
 

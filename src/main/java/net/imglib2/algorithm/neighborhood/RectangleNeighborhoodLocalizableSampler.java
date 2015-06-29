@@ -47,11 +47,33 @@ public abstract class RectangleNeighborhoodLocalizableSampler< T > extends Abstr
 
 	protected final Interval span;
 
+	/*
+	 * Interval containing all locations which might be accessed though
+	 * neighborhoods of the accessInterval.
+	 */
 	protected final Interval sourceInterval;
+
+	/*
+	 * An interval defining the locations whose neighborhoods are entirely
+	 * contained in the accessInterval.
+	 */
+	protected final Interval innerInterval;
+	
+	/*
+	 * Interval containing all locations for which neighborhoods may be accessed.
+	 */
+	protected final Interval accessInterval;
 
 	protected final RectangleNeighborhoodFactory< T > neighborhoodFactory;
 
 	protected final Neighborhood< T > currentNeighborhood;
+
+	/*
+	 * The following neighborhood is potentially faster than the one above, and
+	 * is used for "innter pixels" for which out of bounds checks are not
+	 * needed.
+	 */
+	protected final Neighborhood< T > currentInnerNeighborhood;
 
 	protected final long[] currentPos;
 
@@ -69,26 +91,42 @@ public abstract class RectangleNeighborhoodLocalizableSampler< T > extends Abstr
 		currentMin = new long[ n ];
 		currentMax = new long[ n ];
 		if ( accessInterval == null )
+		{
 			sourceInterval = null;
+			innerInterval = null;
+			this.accessInterval = null;
+		}
 		else
 		{
 			final long[] accessMin = new long[ n ];
 			final long[] accessMax = new long[ n ];
+			final long[] innerMin = new long[ n ];
+			final long[] innerMax = new long[ n ];
+
 			accessInterval.min( accessMin );
 			accessInterval.max( accessMax );
+			accessInterval.max( innerMin );
+			accessInterval.max( innerMax );
+
 			for ( int d = 0; d < n; ++d )
 			{
 				accessMin[ d ] += span.min( d );
 				accessMax[ d ] += span.max( d );
+				innerMin[ d ] -= span.min( d );
+				innerMax[ d ] -= span.max( d );
 			}
 			sourceInterval = new FinalInterval( accessMin, accessMax );
+			innerInterval = new FinalInterval( innerMin, innerMax );
+			this.accessInterval = accessInterval;
 		}
-		
+
 		span.min( currentMin );
 		span.max( currentMax );
-		
+
 		currentNeighborhood = neighborhoodFactory.create( currentPos, currentMin, currentMax, span,
 				sourceInterval == null ? source.randomAccess() : source.randomAccess( sourceInterval ) );
+		currentInnerNeighborhood = neighborhoodFactory.create( currentPos, currentMin, currentMax, span,
+				sourceInterval == null ? source.randomAccess() : source.randomAccess( accessInterval ) );
 	}
 
 	protected RectangleNeighborhoodLocalizableSampler( final RectangleNeighborhoodLocalizableSampler< T > c )
@@ -97,12 +135,16 @@ public abstract class RectangleNeighborhoodLocalizableSampler< T > extends Abstr
 		source = c.source;
 		span = c.span;
 		sourceInterval = c.sourceInterval;
+		innerInterval = c.innerInterval;
+		accessInterval = c.accessInterval;
 		neighborhoodFactory = c.neighborhoodFactory;
 		currentPos = c.currentPos.clone();
 		currentMin = c.currentMin.clone();
 		currentMax = c.currentMax.clone();
 		currentNeighborhood = neighborhoodFactory.create( currentPos, currentMin, currentMax, span,
 				sourceInterval == null ? source.randomAccess() : source.randomAccess( sourceInterval ) );
+		currentInnerNeighborhood = neighborhoodFactory.create( currentPos, currentMin, currentMax, span,
+				sourceInterval == null ? source.randomAccess() : source.randomAccess( accessInterval ) );
 	}
 
 	@Override
