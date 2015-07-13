@@ -35,35 +35,38 @@
 package net.imglib2.algorithm.neighborhood;
 
 import net.imglib2.Cursor;
+import net.imglib2.FinalInterval;
 import net.imglib2.Interval;
 import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.algorithm.neighborhood.RectangleNeighborhood.LocalCursor;
 import net.imglib2.util.IntervalIndexer;
+import net.imglib2.util.Intervals;
 
 public final class RectangleNeighborhoodCursor< T > extends RectangleNeighborhoodLocalizableSampler< T > implements Cursor< Neighborhood< T > >
 {
 	private final long[] dimensions;
 
-	/*
-	 * dimensions[ 0 ] is accessed very frequently, so here is a shortcut which
-	 * does not require array access:
-	 */
-	private final long dimensions0;
-
 	private final long[] min;
-
-	/*
-	 * min[ 0 ] is accessed rather frequently in nextLine(), here is a shortcut
-	 * which does not require array access:
-	 */
-	private final long min0;
 
 	private final long[] max;
 
 	private long index;
 
-	private final long maxIndex;
+	private long maxIndex;
+
+	private long lastIndex;
 
 	private long maxIndexOnLine;
+
+	private final int numIntervals;
+
+	private int nextIntervalIndex;
+
+	private final int lastIntervalIndex;
+
+	private Interval curInterval;
+
+	private final Interval[] intervals;
 
 	/*
 	 * "safe" is used to keep track if accessing the pixels of a neighborhood
@@ -81,12 +84,69 @@ public final class RectangleNeighborhoodCursor< T > extends RectangleNeighborhoo
 		source.dimensions( dimensions );
 		source.min( min );
 		source.max( max );
-		min0 = min[ 0 ];
-		dimensions0 = dimensions[ 0 ];
-		long size = dimensions0;
+		long size = dimensions[ 0 ];
 		for ( int d = 1; d < n; ++d )
 			size *= dimensions[ d ];
 		maxIndex = size;
+
+		/*
+		 * Check if source is at least size of span. (contains() is false for
+		 * equal intervals.)
+		 */
+		if ( !Intervals.contains( span, source ) )
+		{
+			/*
+			 * separate the image into intervals in a border layout similar way,
+			 * but for n dimensions
+			 */
+			lastIntervalIndex = 2 * n;
+			numIntervals = lastIntervalIndex + 1;
+			intervals = new Interval[ numIntervals ];
+
+			long[] minBegin = new long[ n ];
+			long[] maxBegin = new long[ n ];
+
+			long[] minEnd = new long[ n ];
+			long[] maxEnd = new long[ n ];
+
+			sourceInterval.min( minBegin );
+			sourceInterval.max( maxBegin );
+
+			sourceInterval.min( minEnd );
+			sourceInterval.max( maxEnd );
+
+			FinalInterval restInterval = new FinalInterval( sourceInterval );
+			FinalInterval oldRestInterval = null;
+
+			for ( int d = n - 1; d >= 0; --d )
+			{
+				oldRestInterval = restInterval;
+
+				/* restrain the interval in a certain dimension */
+				restInterval = Intervals.expand( restInterval, -span.dimension( d ) + 1, d );
+
+				oldRestInterval.min( minBegin );
+				restInterval.max( maxBegin );
+				maxBegin[ d ] = restInterval.min( d );
+
+				restInterval.min( minEnd );
+				oldRestInterval.max( maxEnd );
+				minEnd[ d ] = restInterval.max( d );
+
+				intervals[ 2 * d ] = new FinalInterval( minBegin, maxBegin );
+				intervals[ 2 * d + 1 ] = new FinalInterval( minEnd, maxEnd );
+			}
+
+			intervals[ lastIntervalIndex ] = restInterval;
+		}
+		else
+		{
+			// span is bigger than the image.
+			intervals = new Interval[] { sourceInterval };
+
+			lastIntervalIndex = 0;
+			numIntervals = 1;
+		}
 		reset();
 	}
 
@@ -96,11 +156,13 @@ public final class RectangleNeighborhoodCursor< T > extends RectangleNeighborhoo
 		dimensions = c.dimensions.clone();
 		min = c.min.clone();
 		max = c.max.clone();
-		min0 = c.min0;
-		dimensions0 = c.dimensions0;
 		maxIndex = c.maxIndex;
+		lastIndex = c.lastIndex;
 		index = c.index;
 		maxIndexOnLine = c.maxIndexOnLine;
+		lastIntervalIndex = c.lastIntervalIndex;
+		numIntervals = c.numIntervals;
+		intervals = c.intervals;
 	}
 
 	@Override
@@ -109,36 +171,56 @@ public final class RectangleNeighborhoodCursor< T > extends RectangleNeighborhoo
 		++currentPos[ 0 ];
 		++currentMin[ 0 ];
 		++currentMax[ 0 ];
-		
-		safe = safe && currentPos[ 0 ] > innerInterval.min( 0 ) && currentPos[ 0 ] < innerInterval.max( 0 );
+
 		if ( ++index > maxIndexOnLine )
 			nextLine();
 	}
 
 	private void nextLine()
 	{
-		currentPos[ 0 ] = min0;
-		currentMin[ 0 ] -= dimensions0;
-		currentMax[ 0 ] -= dimensions0;
-		maxIndexOnLine += dimensions0;
+		currentPos[ 0 ] = curInterval.min( 0 );
+		currentMin[ 0 ] -= curInterval.dimension( 0 );
+		currentMax[ 0 ] -= curInterval.dimension( 0 );
+		maxIndexOnLine += curInterval.dimension( 0 );
 		for ( int d = 1; d < n; ++d )
 		{
 			++currentPos[ d ];
 			++currentMin[ d ];
 			++currentMax[ d ];
-			if ( currentPos[ d ] > max[ d ] )
+			if ( currentPos[ d ] > curInterval.max( d ) )
 			{
-				currentPos[ d ] = min[ d ];
-				currentMin[ d ] -= dimensions[ d ];
-				currentMax[ d ] -= dimensions[ d ];
-				
-				safe = safe && currentPos[ d ] > innerInterval.min( d ) && currentPos[ d ] < innerInterval.max( d );
-			}
-			else {
-				safe = safe && currentPos[ d ] > innerInterval.min( d ) && currentPos[ d ] < innerInterval.max( d );
-				break;
+				currentPos[ d ] = curInterval.min( d );
+				currentMin[ d ] -= curInterval.dimension( d );
+				currentMax[ d ] -= curInterval.dimension( d );
 			}
 		}
+
+		if ( index > maxIndex )
+		{
+			nextInterval();
+		}
+	}
+
+	private final void nextInterval()
+	{
+		curInterval = intervals[ nextIntervalIndex++ ];
+		index = 0;
+		maxIndexOnLine = maxIndex = curInterval.dimension( 0 );
+		currentPos[ 0 ] = curInterval.min( 0 );
+		currentMin[ 0 ] = currentPos[ 0 ] - span.dimension( 0 );
+		currentMax[ 0 ] = currentPos[ 0 ] + span.dimension( 0 );
+
+		for ( int d = 1; d < n; ++d )
+		{
+			maxIndex *= curInterval.dimension( d );
+			currentPos[ d ] = curInterval.min( d );
+			currentMin[ d ] = currentPos[ d ] - dimensions[ d ];
+			currentMax[ d ] = currentPos[ d ] + dimensions[ d ];
+		}
+
+		lastIndex = maxIndex - 1;
+
+		safe = ( nextIntervalIndex == numIntervals ) && numIntervals != 1;
 	}
 
 	@Override
@@ -157,35 +239,29 @@ public final class RectangleNeighborhoodCursor< T > extends RectangleNeighborhoo
 	@Override
 	public void reset()
 	{
-		safe = true;
-		index = 0;
-		maxIndexOnLine = dimensions0;
-		for ( int d = 0; d < n; ++d )
-		{
-			currentPos[ d ] = ( d == 0 ) ? min[ d ] - 1 : min[ d ];
-			currentMin[ d ] = currentPos[ d ] + span.min( d );
-			currentMax[ d ] = currentPos[ d ] + span.max( d );
+		nextIntervalIndex = 0;
+		nextInterval();
 
-			safe = safe && currentPos[ d ] > innerInterval.min( d ) && currentPos[ d ] < innerInterval.max( d );
-		}
+		// move all back one on dim 0
+		--currentPos[ 0 ];
+		--currentMin[ 0 ];
+		--currentMax[ 0 ];
 	}
 
 	@Override
 	public boolean hasNext()
 	{
-		return index < maxIndex;
+		if ( nextIntervalIndex == numIntervals ) { return index < lastIndex; }
+
+		return true;
 	}
 
 	@Override
 	public void jumpFwd( final long steps )
 	{
-		index += steps;
-		maxIndexOnLine = ( index < 0 ) ? dimensions0 : ( 1 + index / dimensions0 ) * dimensions0;
-		IntervalIndexer.indexToPositionWithOffset( index + 1, dimensions, min, currentPos );
-		for ( int d = 0; d < n; ++d )
+		for ( long i = steps; i > 0; --i )
 		{
-			currentMin[ d ] = currentPos[ d ] + span.min( d );
-			currentMax[ d ] = currentPos[ d ] + span.max( d );
+			fwd();
 		}
 	}
 

@@ -156,7 +156,7 @@ public class RectangleShape implements Shape
 		@Override
 		public Object iterationOrder()
 		{
-			return new FlatIterationOrder( this );
+			return this;
 		}
 
 		@Override

@@ -67,12 +67,13 @@ public class SquareStrelTest
 			final List< Shape > strelOpt = StructuringElements.square( radius, img.numDimensions(), true );
 			final Img< UnsignedByteType > opt = Dilation.dilate( img, strelOpt, 1 );
 
-			final Cursor< UnsignedByteType > cStd = std.cursor();
+			final Cursor< UnsignedByteType > cStd = std.localizingCursor();
 			final RandomAccess< UnsignedByteType > raOpt = opt.randomAccess( opt );
 			while ( cStd.hasNext() )
 			{
 				cStd.fwd();
 				raOpt.setPosition( cStd );
+				
 				assertEquals( cStd.get().get(), raOpt.get().get() );
 			}
 		}
